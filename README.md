@@ -41,7 +41,7 @@ npm install
 6️⃣ Проверить запуск
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-node index.js
+npm run dev
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -52,7 +52,7 @@ node index.js
 npm i -g pm2
 
 # Запускаем файл index.js через PM2  --name app задаёт удобное имя процесса "app"
-pm2 start index.js --name app
+pm2 start npm --name app -- run dev
 
 # Сохраняем текущий список процессов PM2 чтобы они автоматически восстановились после перезагрузки сервера
 pm2 save
@@ -60,5 +60,5 @@ pm2 save
 
 
 
-
+https://clck.ru/3SWUKR
 
