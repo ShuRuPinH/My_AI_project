@@ -1,64 +1,20 @@
-Деплой Node.js проекта (Google AI Studio) на VPS
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-1️⃣ Подключиться к серверу
-• через терминал 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-ssh user@ip
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Run and deploy your AI Studio app
 
-• или используя WEB - терминал
+This contains everything you need to run your app locally.
 
-2️⃣ Установить Node.js 
+View your app in AI Studio: https://ai.studio/apps/03946297-2394-407e-a24a-a1c666d0fc5a
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-sudo apt update
-sudo apt install nodejs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## Run Locally
+
+**Prerequisites:**  Node.js
 
 
-3️⃣ Загрузить проект 
-• через GitHub): 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-git clone repo_url
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-• копированием файлов:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- scp -r ./project user@ip:/home/user
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-4️⃣ Установить зависимости в папке проекта
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-npm install
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-5️⃣ Создать .env (PORT, GOOGLE_API_KEY и т.д.)
-• если есть
-
-6️⃣ Проверить запуск
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-npm run dev
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-7️⃣ Запуск в фоне
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Устанавливаем PM2 глобально (менеджер процессов для Node.js)
-npm i -g pm2
-
-# Запускаем файл index.js через PM2  --name app задаёт удобное имя процесса "app"
-pm2 start npm --name app -- run dev
-
-# Сохраняем текущий список процессов PM2 чтобы они автоматически восстановились после перезагрузки сервера
-pm2 save
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-
-https://clck.ru/3SWUKR
-
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`
