@@ -518,4 +518,117 @@ Admin Panel
 Docker deploy (VPS)
 ```
 
+-- =========================================
+-- Удаляем таблицы если уже существуют
+-- (нужно для повторного запуска скрипта)
+-- =========================================
 
+DROP TABLE IF EXISTS user_texts;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS status_dict;
+
+
+
+-- =========================================
+-- 1. Таблица-словарь статусов пользователей
+-- =========================================
+
+CREATE TABLE status_dict (
+    id SERIAL PRIMARY KEY,     -- уникальный ID статуса
+    name VARCHAR(50) NOT NULL  -- название статуса
+);
+
+
+
+-- =========================================
+-- 2. Таблица пользователей
+-- Связана со статусами через status_id
+-- =========================================
+
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,      -- уникальный ID пользователя
+    
+    username VARCHAR(100) NOT NULL,  -- имя пользователя
+    
+    status_id INTEGER NOT NULL, -- ссылка на статус
+    
+    -- Внешний ключ (связь со словарём)
+    CONSTRAINT fk_users_status
+        FOREIGN KEY (status_id)
+        REFERENCES status_dict(id)
+);
+
+
+
+-- =========================================
+-- 3. Таблица текстов пользователей
+-- Связана с пользователями через user_id
+-- =========================================
+
+CREATE TABLE user_texts (
+    id SERIAL PRIMARY KEY,  -- уникальный ID текста
+    
+    user_id INTEGER NOT NULL, -- ссылка на пользователя
+    
+    text_content TEXT NOT NULL, -- сам текст
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Внешний ключ (связь с пользователем)
+    CONSTRAINT fk_texts_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+);
+
+
+
+-- =========================================
+-- Заполнение таблицы словаря (2–3 строки)
+-- =========================================
+
+INSERT INTO status_dict (name) VALUES
+('active'),    -- активный пользователь
+('blocked'),   -- заблокирован
+('inactive');  -- неактивный
+
+
+
+-- =========================================
+-- Заполнение пользователей (3 строки)
+-- status_id берётся из status_dict
+-- =========================================
+
+INSERT INTO users (username, status_id) VALUES
+('alice', 1),  -- active
+('bob', 2),    -- blocked
+('charlie', 1);
+
+
+
+-- =========================================
+-- Заполнение текстов пользователей
+-- user_id берётся из users
+-- =========================================
+
+INSERT INTO user_texts (user_id, text_content) VALUES
+(1, 'Hello world!'),
+(1, 'My second message'),
+(2, 'Blocked user text');
+
+
+
+-- =========================================
+-- Пример проверки данных
+-- JOIN всех таблиц
+-- =========================================
+
+SELECT
+    u.username,
+    s.name AS status,
+    t.text_content,
+    t.created_at
+FROM users u
+JOIN status_dict s
+    ON u.status_id = s.id
+JOIN user_texts t
+    ON u.id = t.user_id;
