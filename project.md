@@ -1,634 +1,308 @@
-# Общая архитектура (под твой кейс)
+Тогда у тебя задача чуть точнее формулируется:
 
-**Тип:**
-**AI-first web application (multimodal)**
-**Подход:** modular monolith → scalable services
+> **файлы хранятся временно, но результат обработки и факт обработки должны храниться долго и быть привязаны к объекту**
 
-```
-Frontend (Web UI)
-        |
-API Gateway
-        |
-Backend (Core App)
- ├── Auth module
- ├── User Data module
- ├── Content Generation module (AI)
- ├── Media Processing module
- ├── External API module
- ├── Storage module
- ├── Admin module
-        |
-Databases + Object Storage
-        |
-AI Services (LLM, Vision)
-```
+Это очень типичный кейс — например: документы к заявке, объекту недвижимости, пользователю и т.д.
 
-Почему именно так:
-
-* **Modular monolith — лучший старт** (масштабируем без лишней сложности) ([Birdor Blog][1])
-* **Multimodal AI требует отдельного orchestration слоя** ([Sealos][2])
-* **API-first архитектура упрощает интеграции** ([Kite Metric][3])
+Я бы делал так.
 
 ---
 
-# Основные модули (и как их реализовать)
+# Оптимальная архитектура для твоего случая
 
-## 1. Frontend (UI)
+## 📁 Файлы — временно
 
-**Функции:**
+## 🗄️ Результаты — постоянно
 
-* ввод текста
-* загрузка изображений
-* загрузка файлов
-* просмотр результатов
-* админка
+То есть:
 
-**Технологии (актуально 2026):**
-
-* React + Next.js
-* Tailwind
-* SSR или streaming SSR
-
-Почему:
-
-* SSR улучшает UX и скорость загрузки ([Expeed Software][4])
+* **файлы** — во временном хранилище
+* **результаты AI** — в базе данных
+* **статус обработки** — в базе
+* **связь с объектом** — через `object_id`
 
 ---
 
-## 2. API Gateway
+# Как это выглядит логически
 
-**Функции:**
-
-* маршрутизация запросов
-* авторизация
-* rate limit
-* логирование
-
-**Технологии:**
-
-* Nginx
-* Traefik
-* или встроенный gateway
-
----
-
-## 3. Core Backend (главный сервис)
-
-Лучше всего:
-
-**FastAPI или Go**
-
-Структура:
-
-```
-backend/
- ├── auth/
- ├── users/
- ├── prompts/
- ├── generation/
- ├── media/
- ├── integrations/
- ├── analytics/
- ├── admin/
-```
-
-Почему:
-
-* разделение бизнес-логики — ключ к масштабируемости ([Birdor Blog][1])
-
----
-
-## 4. AI Generation Module (самый важный)
-
-Функции:
-
-* создание текста
-* генерация изображений
-* обработка файлов
-* orchestration AI
-
-### Архитектура:
-
-```
-Request
-   |
-Prompt Builder
-   |
-Retriever (RAG)
-   |
-Model Call
-   |
-Post-processing
-```
-
-Что нужно:
-
-* LLM API
-* Vision API
-* RAG
-* tool calling
-
-Почему:
-
-* современные AI-приложения — это не один вызов модели, а pipeline обработки данных ([Sealos][2])
-
----
-
-## 5. Media Processing Module
-
-Функции:
-
-* обработка изображений
-* OCR
-* PDF parsing
-* audio/video (опционально)
-
-Инструменты:
-
-* Pillow
-* OpenCV
-* Tesseract
-* ffmpeg
-
----
-
-## 6. External API Module
-
-Функции:
-
-* интеграция сторонних сервисов
-* загрузка данных
-* webhook обработка
-
-Примеры:
-
-* CRM
-* Google Docs
-* Email API
-* payment API
-
-Реализация:
-
-```
-integrations/
- ├── google_api/
- ├── crm_api/
- ├── payment_api/
+```text
+Object (например недвижимость)
+        │
+        ├── Document
+        │        ├── file_path (временно)
+        │        ├── status
+        │        ├── summary
+        │        └── processed_at
 ```
 
 ---
 
-## 7. Storage Layer
+# Рекомендуемая схема таблиц
 
-Нужно **3 типа хранения**.
+## Таблица объектов
 
-## PostgreSQL
-
-Хранит:
-
-* пользователи
-* настройки
-* статистика
-* доступы
-
-Почему:
-
-* лучший выбор для transactional данных ([Birdor Blog][1])
+```sql
+objects
+-------
+id UUID
+name TEXT
+created_at TIMESTAMP
+```
 
 ---
 
-## Object Storage
+## Таблица документов
 
-Хранит:
+Это ключевая таблица.
 
-* изображения
-* файлы
-* результаты генерации
+```sql
+documents
+---------
+id UUID
+object_id UUID
 
-Примеры:
+original_filename TEXT
+file_path TEXT
 
-* S3
-* MinIO
+mime_type TEXT
 
----
+status TEXT
+-- uploaded
+-- processing
+-- done
+-- error
 
-## Vector Database (очень желательно)
+summary TEXT
 
-Для:
+created_at TIMESTAMP
+processed_at TIMESTAMP
 
-* RAG
-* поиск по файлам
-* поиск по данным пользователя
+error_message TEXT
+```
 
-Примеры:
-
-* Qdrant
-* Weaviate
-
----
-
-## 8. Job Queue (очень желательно)
-
-Для:
-
-* генерации
-* обработки файлов
-* API вызовов
-
-Почему:
-
-AI-задачи тяжёлые и должны быть async.
-
-Инструменты:
-
-* Redis Queue
-* Celery
-* RabbitMQ
-
-Асинхронная обработка — ключ к масштабируемости AI систем. ([Kite Metric][3])
+Вот это — **главное решение твоей задачи**.
 
 ---
 
-## 9. Authentication Module
+# Как это работает по шагам
 
-Функции:
+## 1. Пользователь загружает файл
 
-* логин
-* JWT
-* роли
-* доступ по IP
+```text
+PDF / JPEG
+```
 
-Поддержка:
+Ты:
 
-* RBAC
-* IP whitelist
+1. сохраняешь файл:
 
-Почему:
+```text
+/tmp/uploads/uuid.pdf
+```
 
-каждый запрос должен быть аутентифицирован. ([Birdor Blog][1])
+2. создаёшь запись:
+
+```sql
+status = 'uploaded'
+object_id = XXX
+```
 
 ---
 
-## 10. Admin Panel
+## 2. Воркер берёт документ
 
-Функции:
+```sql
+WHERE status = 'uploaded'
+```
 
-* статистика
-* настройки
-* мониторинг
-* управление пользователями
+Меняет:
+
+```sql
+status = 'processing'
+```
+
+---
+
+## 3. Обработка через ИИ
+
+```text
+PDF → extract text
+JPEG → OCR
+→ AI summary
+```
+
+---
+
+## 4. Сохраняется результат
+
+```sql
+status = 'done'
+summary = '...'
+processed_at = NOW()
+```
+
+Теперь:
+
+* файл можно удалить
+* результат останется
+
+---
+
+# Почему это хорошо работает
+
+Ты получаешь:
+
+✔ знаешь был ли файл
+✔ знаешь обработан ли
+✔ знаешь результат
+✔ файл можно удалить
+✔ можно добавлять новые документы
+
+---
+
+# Временное хранение файлов
+
+Если хранение **короткое (часы/дни)** — просто:
+
+```text
+/tmp/uploads/
+```
+
+или:
+
+```text
+/storage/tmp/
+```
+
+Если нужно чуть серьёзнее:
+
+* локальный диск
+* или S3-совместимое хранилище (например self-hosted)
+
+Например:
+
+* MinIO — отличный вариант если сервисов несколько
+
+Но если сервис один — **локальный диск проще и быстрее**.
+
+---
+
+# Очень важный момент — удаление файлов
+
+После обработки:
+
+```text
+если status = done
+→ удалить файл
+```
+
+Или через cron:
+
+```bash
+delete files older than 24h
+```
+
+---
+
+# Если документы добавляются к объекту постепенно
+
+Твоя схема это уже поддерживает:
+
+```text
+Object 123
+
+Documents:
+- паспорт.pdf → done
+- фото.jpg → done
+- договор.pdf → processing
+```
 
 Можно:
 
-* встроенный frontend
-* или отдельный admin UI
+* проверять, какие документы уже есть
+* какие обработаны
+* какие упали
 
 ---
 
-## 11. Analytics Module
+# Если один документ может заменяться
 
-Функции:
+Добавь:
 
-* usage
-* tokens
-* ошибки
-* latency
-
-Инструменты:
-
-* Prometheus
-* Grafana
-* OpenTelemetry
-
-Современные системы требуют полной наблюдаемости (observability). ([Birdor Blog][1])
-
----
-
-## 12. Deployment Layer
-
-Для VPS:
-
-```
-Docker
-Docker Compose
-Nginx
-SSL
+```sql
+document_type TEXT
+-- passport
+-- contract
+-- photo
 ```
 
-Если масштаб:
+И тогда:
 
-```
-Kubernetes
-```
-
-Kubernetes — стандарт runtime для современных систем. ([Birdor Blog][1])
-
----
-
-# Поток данных (реальный)
-
-Пример генерации текста:
-
-```
-User → Upload image
-        ↓
-Frontend
-        ↓
-API
-        ↓
-Media Processing
-        ↓
-RAG
-        ↓
-LLM
-        ↓
-Store result
-        ↓
-Return response
+```sql
+UNIQUE(object_id, document_type)
 ```
 
 ---
 
-# Пример структуры проекта
+# Если кратко — правильное решение
 
+**Файлы:**
+→ временно на диск
+
+**Результаты:**
+→ в PostgreSQL
+
+**Статус:**
+→ `uploaded | processing | done | error`
+
+**Связь:**
+→ `object_id`
+
+---
+
+# Если ты на Go (похоже по прошлым задачам)
+
+Могу предложить готовую структуру:
+
+```go
+type Document struct {
+    ID               uuid.UUID
+    ObjectID         uuid.UUID
+
+    OriginalFilename string
+    FilePath         string
+    MimeType         string
+
+    Status           string
+
+    Summary          string
+    ErrorMessage     string
+
+    CreatedAt        time.Time
+    ProcessedAt      *time.Time
+}
 ```
-project/
 
-frontend/
-backend/
+И отдельный:
 
-backend/
- ├── app/
- │   ├── auth/
- │   ├── users/
- │   ├── prompts/
- │   ├── generation/
- │   ├── media/
- │   ├── integrations/
- │   ├── admin/
- │   ├── analytics/
- │   └── core/
- │
- ├── worker/
- ├── migrations/
- ├── docker/
- │
- └── main.py
+```go
+DocumentProcessor
+```
+
+который:
+
+```text
+берёт uploaded → делает summary → обновляет status
 ```
 
 ---
 
-# Архитектура базы данных
+# Один уточняющий вопрос — сильно влияет на дизайн
 
-Основные таблицы:
+**Файл нужно удалять после обработки
+или иногда нужно оставить оригинал?**
 
-```
-users
-roles
-sessions
+Варианты:
 
-projects
-inputs
-outputs
-
-files
-images
-
-prompts
-
-usage_logs
-api_calls
-errors
-```
-
----
-
-# Особенности именно для твоего кейса
-
-Твой кейс — **создание текстов на основе пользовательских данных**.
-
-Значит обязательно:
-
-✔ RAG
-✔ vector DB
-✔ file processing
-✔ prompt templates
-
----
-
-# Важные рекомендации (практика)
-
-## 1. Не начинай с микросервисов
-
-Начни:
-
-```
-Modular Monolith
-```
-
-Это best practice. ([Birdor Blog][1])
-
----
-
-## 2. Делай async задачи
-
-Особенно:
-
-* генерация
-* файлы
-* API
-
----
-
-## 3. Делай логирование сразу
-
-Иначе потом боль.
-
----
-
-## 4. Делай versioning prompt'ов
-
-Это критично.
-
----
-
-# Минимальный MVP (реалистичный)
-
-Вот **минимальный набор**, чтобы запустить:
-
-```
-Frontend: Next.js
-Backend: FastAPI
-DB: PostgreSQL
-Storage: MinIO
-Queue: Redis
-AI: OpenAI API
-Deploy: Docker + VPS
-```
-
-Это реально рабочая архитектура.
-
----
-
-# Проверка актуальности (2025–2026)
-
-Вот что сейчас считается современным:
-
-| Компонент        | Актуальность       |
-| ---------------- | ------------------ |
-| Modular monolith | ✅ лучший старт     |
-| Vector DB        | ✅ стандарт для AI  |
-| RAG              | ✅ must-have        |
-| Async jobs       | ✅ обязательно      |
-| Docker deploy    | ✅ стандарт         |
-| Kubernetes       | ⚠ только при росте |
-| Microservices    | ⚠ позже            |
-
-Все выше — **актуально на 2025–2026**.
-
----
-
-# Если делать серьёзный продукт — добавь:
-
-* billing
-* multi-tenant
-* audit logs
-* rate limiting
-* quotas
-
----
-
-# Если коротко (самая важная часть)
-
-Твоя архитектура должна быть:
-
-```
-Frontend (Next.js)
-        |
-Backend (FastAPI modular monolith)
-        |
-PostgreSQL + Vector DB + Object Storage
-        |
-Queue (Redis)
-        |
-AI APIs (LLM + Vision)
-        |
-Admin Panel
-        |
-Docker deploy (VPS)
-```
-
--- =========================================
--- Удаляем таблицы если уже существуют
--- (нужно для повторного запуска скрипта)
--- =========================================
-
-DROP TABLE IF EXISTS user_texts;
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS status_dict;
-
-
-
--- =========================================
--- 1. Таблица-словарь статусов пользователей
--- =========================================
-
-CREATE TABLE status_dict (
-    id SERIAL PRIMARY KEY,     -- уникальный ID статуса
-    name VARCHAR(50) NOT NULL  -- название статуса
-);
-
-
-
--- =========================================
--- 2. Таблица пользователей
--- Связана со статусами через status_id
--- =========================================
-
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,      -- уникальный ID пользователя
-    
-    username VARCHAR(100) NOT NULL,  -- имя пользователя
-    
-    status_id INTEGER NOT NULL, -- ссылка на статус
-    
-    -- Внешний ключ (связь со словарём)
-    CONSTRAINT fk_users_status
-        FOREIGN KEY (status_id)
-        REFERENCES status_dict(id)
-);
-
-
-
--- =========================================
--- 3. Таблица текстов пользователей
--- Связана с пользователями через user_id
--- =========================================
-
-CREATE TABLE user_texts (
-    id SERIAL PRIMARY KEY,  -- уникальный ID текста
-    
-    user_id INTEGER NOT NULL, -- ссылка на пользователя
-    
-    text_content TEXT NOT NULL, -- сам текст
-    
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Внешний ключ (связь с пользователем)
-    CONSTRAINT fk_texts_user
-        FOREIGN KEY (user_id)
-        REFERENCES users(id)
-);
-
-
-
--- =========================================
--- Заполнение таблицы словаря (2–3 строки)
--- =========================================
-
-INSERT INTO status_dict (name) VALUES
-('active'),    -- активный пользователь
-('blocked'),   -- заблокирован
-('inactive');  -- неактивный
-
-
-
--- =========================================
--- Заполнение пользователей (3 строки)
--- status_id берётся из status_dict
--- =========================================
-
-INSERT INTO users (username, status_id) VALUES
-('alice', 1),  -- active
-('bob', 2),    -- blocked
-('charlie', 1);
-
-
-
--- =========================================
--- Заполнение текстов пользователей
--- user_id берётся из users
--- =========================================
-
-INSERT INTO user_texts (user_id, text_content) VALUES
-(1, 'Hello world!'),
-(1, 'My second message'),
-(2, 'Blocked user text');
-
-
-
--- =========================================
--- Пример проверки данных
--- JOIN всех таблиц
--- =========================================
-
-SELECT
-    u.username,
-    s.name AS status,
-    t.text_content,
-    t.created_at
-FROM users u
-JOIN status_dict s
-    ON u.status_id = s.id
-JOIN user_texts t
-    ON u.id = t.user_id;
+1. **Удаляем всегда** → проще
+2. **Иногда храним** → нужна долговременная storage стратегия
